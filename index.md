@@ -24,7 +24,21 @@ footer {
 .hljs-variable { color: lightblue }
 .hljs-string { color: lightgreen }
 .hljs-params { color: lightpink }
+
+pre, pre[class*="language-"] {
+  white-space: pre-wrap;
+  word-break: break-word;
+  margin: 30px 0;
+  color: white;
+  overflow: auto;
+}
+
+.highlighted-line {
+  background-color: #14161a;
+  display: block;
+}
 </style>
+
 
 # Love to Frankenstein's monster:
 # Kotlin for Apache Spark
@@ -82,22 +96,56 @@ But soon I realized that lots of things could be easier with Kotlin!
 
 # Note on null-aware type system
 
-![fit drop-shadow](images/type-hier.png)
+![fit drop-shadow](images/types-hier.png)
 
 ---
 
 # Note on null-aware type system 
 
-```kotlin
+```kotlin {1,4-5}
 class Z
 
 fun main(){
     val nullZ: Z? = null
     val z = Z()
-    println(nullZ is Z) // false
+    println(nullZ is Z)  // false
+    println(z is Z)      // true
     println(nullZ is Z?) // true
-    println(z is Z?) // true
-    println(z is Z) // true
+    println(z is Z?)     // true
+}
+```
+
+---
+
+# Note on null-aware type system 
+
+```kotlin {1,4-6}
+class Z
+
+fun main(){
+    val nullZ: Z? = null
+    val z = Z()
+    println(nullZ is Z)  // false
+    println(z is Z)      // true
+    println(nullZ is Z?) // true
+    println(z is Z?)     // true
+}
+```
+
+---
+
+# Note on null-aware type system 
+
+```kotlin {1,4-5,7-9}
+class Z
+
+fun main(){
+    val nullZ: Z? = null
+    val z = Z()
+    println(nullZ is Z)  // false
+    println(z is Z)      // true
+    println(nullZ is Z?) // true
+    println(z is Z?)     // true
 }
 ```
 
