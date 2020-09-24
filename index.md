@@ -24,15 +24,6 @@ footer {
 .hljs-variable { color: lightblue }
 .hljs-string { color: lightgreen }
 .hljs-params { color: lightpink }
-
-pre, pre[class*="language-"] {
-  white-space: pre-wrap;
-  word-break: break-word;
-  margin: 30px 0;
-  color: white;
-  overflow: auto;
-}
-
 .highlighted-line {
   background-color: #14161a;
   display: block;
@@ -210,3 +201,226 @@ html { h1("Example") }
 1. And at the start of experiment we don't have any idea on its behavior!
 
 ![bg right:40%](images/frankenstein.jpg)
+
+---
+
+# First sketch
+
+![bg right:40%](https://source.unsplash.com/FrQKfzoTgsw)
+
+```kotlin
+val spark = SparkSession .orCreate
+listOf("a" to "and", "b" to "beetle")
+    .map(MapFunction { it }, Encoders.bean())
+    .show
+```
+
+## Fails
+
+Encoder can't (de)serialize
+
+---
+
+# Primitive encoders
+
+```kotlin
+@JvmField val ENCODERS = mapOf<KClass<out Any>, Encoder<out Any>>(
+    Boolean::class to Encoders.BOOLEAN(),
+    Byte::class to Encoders.BYTE(),
+    Short::class to Encoders.SHORT(),
+    Int::class to Encoders.INT(),
+    Long::class to Encoders.LONG(),
+    Float::class to Encoders.FLOAT(),
+    Double::class to Encoders.DOUBLE(),
+    String::class to Encoders.STRING(),
+    BigDecimal::class to Encoders.DECIMAL(),
+    Date::class to Encoders.DATE(),
+    Timestamp::class to Encoders.TIMESTAMP(),
+    ByteArray::class to Encoders.BINARY()
+) 
+```
+
+---
+
+# Getting real
+
+```kotlin
+inline fun <reified T> encoder(): Encoder<T>? = 
+    ENCODERS[T::class] as? Encoder<T>? ?: 
+    Encoders.bean(T::class.java) //Encoders.kryo(T::class.java) 
+```
+
+ - Will work for correct Java Beans
+ - Will work for primitives
+ - Won't work for `data` classes
+
+ ---
+
+ # Getting real
+
+```kotlin
+inline fun <reified T> SparkSession.toDS(list: List<T>): Dataset<T> = 
+    createDataset(list, encoder<T>()) 
+```
+
+Gives us ability to perform first piece of magic:
+
+```kotlin
+spark.toDS(listOf(1, 2, 3)).show()
+```
+
+And it starts to look like DSL!
+And we love Spark to be DSL
+
+---
+
+# Type inference!
+
+- Generics are everywhere
+- Generics are being erased at runtime
+- Need to find some hack
+
+---
+
+# Jackson
+
+```java {2,4,10}
+public abstract class TypeReference<T> {
+    protected final Type _type;
+    protected TypeReference() {
+        Type superClass = getClass().getGenericSuperclass();
+        if (superClass instanceof Class<?>) {
+            // ↑ sanity check, should never happen
+            throw new IllegalArgumentException(/* */);
+            // ↑ comment that not enough data
+        }
+        _type = ((ParameterizedType) superClass).getActualTypeArguments()[0];
+    }
+
+    public Type getType() { return _type; }
+```
+
+---
+
+# Jackson
+
+```java {5-9}
+public abstract class TypeReference<T> {
+    protected final Type _type;
+    protected TypeReference() {
+        Type superClass = getClass().getGenericSuperclass();
+        if (superClass instanceof Class<?>) {
+            // ↑ sanity check, should never happen
+            throw new IllegalArgumentException();
+            // ↑ comment that not enough data
+        }
+        _type = ((ParameterizedType) superClass).getActualTypeArguments()[0];
+    }
+
+    public Type getType() { return _type; }
+```
+
+---
+
+# Now let's translate it to Kotlin
+
+```kotlin
+abstract class TypeRef<T> protected constructor() {
+    var type: ParameterizedType
+    init {
+        val sC = this::class.java.genericSuperclass
+        require(sC !is Class<*>) { "error" }
+        // ↑ should never happen
+        this.type = sC as ParameterizedType                             }}
+```
+
+Easy!
+
+---
+
+# And use it…
+    fun obtainGenericDataSchema(typeImpl: ParameterizedTypeImpl): DataType {
+        val z = typeImpl.rawType.kotlin.declaredMemberProperties
+        val y = typeImpl.actualTypeArguments
+        return StructType(
+                KotlinReflectionHelper
+                        .dataClassProps(typeImpl.rawType.kotlin)
+                        .map {
+                            val dt = if(!it.c.isData) 
+                                JavaTypeInference.inferDataType(it.c.java)._1 
+                                    else null
+                            StructField(it.name, dt, it.nullable, Metadata.empty())
+                        }
+                        .toTypedArray()      
+
+---
+<!-- _class: lead -->
+![bg right:50%](https://media.giphy.com/media/l3vQXALZIGo6CACVq/source.gif)
+
+# <!-- fit --> And it won't work
+
+Getting little scary, right?
+
+---
+
+# And it won't work
+
+Because Jackson's hack won't work in Kotlin
+
+By the way, it's the beginning of the story of love to the Monster!
+
+Because it's boring when everuthing works.
+
+---
+
+# What should I do now? Google!
+
+```kotlin
+inline fun <reified T : Any> getKType(): KType = object : SuperTypeTokenHolder<T>() {}.getKTypeImpl()
+open class SuperTypeTokenHolder<T>
+fun SuperTypeTokenHolder<*>.getKTypeImpl(): KType = javaClass.genericSuperclass.toKType().arguments.single().type!!
+fun KClass<*>.toInvariantFlexibleProjection(arguments: List<KTypeProjection> = emptyList()): KTypeProjection {
+    val args = if (java.isArray()) listOf(java.componentType.kotlin.toInvariantFlexibleProjection()) else arguments
+    return KTypeProjection.invariant(createType(args, nullable = false))
+}
+fun Type.toKTypeProjection(): KTypeProjection = when (this) {
+    is Class<*> -> this.kotlin.toInvariantFlexibleProjection()
+    is ParameterizedType -> {
+        val erasure = (rawType as Class<*>).kotlin
+        erasure.toInvariantFlexibleProjection((erasure.typeParameters.zip(actualTypeArguments).map { (parameter, argument) ->
+            val projection = argument.toKTypeProjection()
+            projection.takeIf {
+                parameter.variance == KVariance.INVARIANT || parameter.variance != projection.variance
+            } ?: KTypeProjection.invariant(projection.type!!)
+        }))
+    }
+    is WildcardType -> when {
+        lowerBounds.isNotEmpty() -> KTypeProjection.contravariant(lowerBounds.single().toKType())
+        upperBounds.isNotEmpty() -> KTypeProjection.covariant(upperBounds.single().toKType())
+        else -> KTypeProjection.STAR
+    }
+    is GenericArrayType -> Array<Any>::class.toInvariantFlexibleProjection(listOf(genericComponentType.toKTypeProjection()))
+    is TypeVariable<*> -> TODO() // TODO
+    else -> throw IllegalArgumentException("Unsupported type: $this")
+}
+
+fun Type.toKType(): KType = toKTypeProjection().type!!
+```
+
+---
+# Sponsor of this horror above:
+# Alexander Udalov (JetBrains, Kotlin)
+
+Hack is already deprecated
+
+Because `typeOf<T>()` introduced
+
+---
+
+# Sidenote about `typeOf`
+
+- Works in compile time
+- Still experimental
+- Much fater then Scala's `TypeTags`s
+
+---
