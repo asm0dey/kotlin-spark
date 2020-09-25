@@ -57,7 +57,7 @@ Pasha Finkelshteyn, JetBrains
 
 # Story of my love with Kotlin
 
-- Used ot in production several weeks before first release
+- Used it in production several weeks before first release
 - Was first adopter in Sberbank's production
 - Giving talks on it
 - Trying to use it **EVERYWHERE**
@@ -154,7 +154,7 @@ This :arrow_up: already exists in stdlib
 # Reified generics
 
 * Generics on JVM **can't** be reified. Ever.
-* But there are *inline* methods in Kotlin. They will be inlined at runtime:
+* But there are *inline* methods in Kotlin. They will be inlined at compile time:
     ```kotlin
     inline fun runIt(func: () -> Unit) = func()
     ```
@@ -167,7 +167,7 @@ This :arrow_up: already exists in stdlib
 
 # DSL-building
 
-Extension functions in conjunction with functional arguments allow us following magic:
+Extension functions in conjunction with functional arguments allow us to following magic:
 
 ```kotlin
 fun html(init: HTML.() -> Unit): HTML {
@@ -175,7 +175,7 @@ fun html(init: HTML.() -> Unit): HTML {
     HTML.init() // or return HTML().apply { init () }
     return result
 }
-fun HTML.h1(text:String) = addElement("<h1>$text<h1>")
+fun HTML.h1(text: String) = addElement("<h1>$text<h1>")
 html { h1("Example") }
 ```
 
@@ -196,7 +196,7 @@ html { h1("Example") }
 # <!-- fit --> But why Frankenstein's?
 # <!-- fit --> And why monster?
 
-1. It looks alike my surname
+1. It is alike my surname
 1. We need to crossbreed Kotlin and Scala to produce something with best parts of both worlds!
 1. And at the start of experiment we don't have any idea on its behavior!
 
@@ -209,7 +209,7 @@ html { h1("Example") }
 ![bg right:40%](https://source.unsplash.com/FrQKfzoTgsw)
 
 ```kotlin
-val spark = SparkSession .orCreate
+val spark = SparkSession.orCreate
 listOf("a" to "and", "b" to "beetle")
     .map(MapFunction { it }, Encoders.bean())
     .show
@@ -284,7 +284,7 @@ And we love Spark to be DSL
 
 # Jackson
 
-```java {2,4,10}
+```kotlin {2,4,10}
 public abstract class TypeReference<T> {
     protected final Type _type;
     protected TypeReference() {
@@ -304,7 +304,7 @@ public abstract class TypeReference<T> {
 
 # Jackson
 
-```java {5-9}
+```kotlin {5-9}
 public abstract class TypeReference<T> {
     protected final Type _type;
     protected TypeReference() {
@@ -331,7 +331,7 @@ abstract class TypeRef<T> protected constructor() {
         val sC = this::class.java.genericSuperclass
         require(sC !is Class<*>) { "error" }
         // ↑ should never happen
-        this.type = sC as ParameterizedType                             }}
+        this.type = sC as ParameterizedType
 ```
 
 Easy!
@@ -339,19 +339,22 @@ Easy!
 ---
 
 # And use it…
-    fun obtainGenericDataSchema(typeImpl: ParameterizedTypeImpl): DataType {
-        val z = typeImpl.rawType.kotlin.declaredMemberProperties
-        val y = typeImpl.actualTypeArguments
-        return StructType(
-                KotlinReflectionHelper
-                        .dataClassProps(typeImpl.rawType.kotlin)
-                        .map {
-                            val dt = if(!it.c.isData) 
-                                JavaTypeInference.inferDataType(it.c.java)._1 
-                                    else null
-                            StructField(it.name, dt, it.nullable, Metadata.empty())
-                        }
-                        .toTypedArray()      
+
+```kotlin
+fun obtainGenericDataSchema(typeImpl: ParameterizedTypeImpl): DataType {
+    val z = typeImpl.rawType.kotlin.declaredMemberProperties
+    val y = typeImpl.actualTypeArguments
+    return StructType(
+            KotlinReflectionHelper
+                    .dataClassProps(typeImpl.rawType.kotlin)
+                    .map {
+                        val dt = if(!it.c.isData) 
+                            JavaTypeInference.inferDataType(it.c.java)._1 
+                                else null
+                        StructField(it.name, dt, it.nullable, Metadata.empty())
+                    }
+                    .toTypedArray()
+```
 
 ---
 <!-- _class: lead -->
@@ -359,7 +362,7 @@ Easy!
 
 # <!-- fit --> And it won't work
 
-Getting little scary, right?
+Getting a little scary, right?
 
 ---
 
@@ -369,7 +372,7 @@ Because Jackson's hack won't work in Kotlin
 
 By the way, it's the beginning of the story of love to the Monster!
 
-Because it's boring when everuthing works.
+Because it's boring when everything works.
 
 ---
 
@@ -411,7 +414,7 @@ fun Type.toKType(): KType = toKTypeProjection().type!!
 # Sponsor of this horror above:
 # Alexander Udalov (JetBrains, Kotlin)
 
-Hack is already deprecated
+This is already deprecated
 
 Because `typeOf<T>()` introduced
 
@@ -420,7 +423,182 @@ Because `typeOf<T>()` introduced
 # Sidenote about `typeOf`
 
 - Works in compile time
-- Still experimental
-- Much fater then Scala's `TypeTags`s
+- Still experimental **
+- Much faster then Scala's `TypeTags`s
+
+
+
+
+
+
+** do̳͚n'͓̫̞̝̳t̲̜ ͇u̮̳̲͚̯s̯̬̯e̙͈ ̬i̙̟̹̘̳t̙̻͍ ͇̬̫i̜͖͕n ̪̰̝pr̠͕o̺͉̞͖d͖̺̦͚͔u̟̝̜c͍̺t̬͔̯̝̗̜i̮̣͇͔̻̥o̮̙͉̹͎͍n̰̼: p͕̻̥̪̩̻̱̼o̖͕̖̱͎̬̲̺̝͈̝̟w̜̮̺͉̟̱͎̳̫͙͙̩͙͓̞̖̫ͅe̜̰̘͓̮̯r͖͈̮̦̝͖̱͚ ͔̯̭c͚̱͇̦̯ͅo̰̣͔͚͙͙̜̗r̙̫̰͍̝̤͔̻͙̥̤͎̜̩͕̫͇͖r͉̬̭̬̪̲̙͍͖͕͙̘̣͉u͉̥̟̻̜̖̥̮̜̲̲̻̤̥̭̲̟p̞̲̝̫̫̗̬̺͚͖̤t͍̩̼̮̺̯̬ͅs̺͚̙̙̫̝̠̻̯͙̭
+
 
 ---
+
+# New inference
+
+```kotlin {2}
+fun schema(type: KType, map: Map<String, KType> = mapOf()): DataType {
+    val primitiveSchema = knownDataTypes[type.classifier]
+    if (primitiveSchema != null) 
+        return KSimpleTypeWrapper(
+            primitiveSchema, 
+            (type.classifier!! as KClass<*>).java, 
+            type.isMarkedNullable
+        )
+    val klass = type.classifier as? KClass<*> ?: 
+        throw IllegalArgumentException("Unsupported type $type")
+    val args = type.arguments
+```
+
+---
+
+# New inference
+
+```kotlin {3-8}
+fun schema(type: KType, map: Map<String, KType> = mapOf()): DataType {
+    val primitiveSchema = knownDataTypes[type.classifier]
+    if (primitiveSchema != null) 
+        return KSimpleTypeWrapper(
+            primitiveSchema, 
+            (type.classifier!! as KClass<*>).java, 
+            type.isMarkedNullable
+        )
+    val klass = type.classifier as? KClass<*> ?: 
+        throw IllegalArgumentException("Unsupported type $type")
+    val args = type.arguments
+```
+
+---
+
+# New inference
+
+```kotlin {11}
+fun schema(type: KType, map: Map<String, KType> = mapOf()): DataType {
+    val primitiveSchema = knownDataTypes[type.classifier]
+    if (primitiveSchema != null) 
+        return KSimpleTypeWrapper(
+            primitiveSchema, 
+            (type.classifier!! as KClass<*>).java, 
+            type.isMarkedNullable
+        )
+    val klass = type.classifier as? KClass<*> ?: 
+        throw IllegalArgumentException("Unsupported type $type")
+    val args = type.arguments
+```
+
+---
+
+# New inference
+
+```kotlin
+    val types = transitiveMerge(
+        map,
+        klass
+            .typeParameters
+            .zip(args)
+            .map { it.first.name to it.second.type!! }
+            .toMap()
+    )
+```
+
+`transitiveMerge`: remember GenericSignature → RuntimeType
+
+---
+
+# New inference
+
+```kotlin
+val structType = StructType(
+    klass
+        .primaryConstructor!!
+        .parameters
+        .filter { it.findAnnotation<Transient>() == null }
+        .map {
+            val projectedType = types[it.type.toString()] ?: it.type
+            val propertyDescriptor = 
+            PropertyDescriptor(it.name, klass.java, "is" +
+                    it.name?.capitalize(), null)
+            KStructField(
+                propertyDescriptor.readMethod.name, 
+                StructField(it.name, schema(projectedType, types), 
+                    projectedType.isMarkedNullable, Metadata.empty()))}
+```
+
+---
+
+# <!-- fit --> Dark side of Scala :ghost:
+
+- `KStructField`: wrapper over StructField
+- `KSimpleTypeWrapper`: wrapper over primitive type
+- `KDataTypeWrapper`: wrapper over data class
+
+These wrappers hold real classes, nullability etc.
+
+Because Scala can't infer them!
+
+---
+# <!-- fit --> Dark side of Scala :ghost:
+
+1. Add custom handling methods:
+    ```kotlin
+     def serializerFor(cls: java.lang.Class[_], dt: DataTypeWithClass) = …
+     def deserializerFor(cls: java.lang.Class[_], dt: DataTypeWithClass) = …
+    ```
+---
+# <!-- fit --> Dark side of Scala :ghost:
+
+2. Add custom logics when there is predefined schema:
+    ```scala
+    case _ if predefinedDt.isDefined =>
+        predefinedDt.get match {
+          case dataType: KDataTypeWrapper =>
+            val cls = dataType.cls
+            val properties = getJavaBeanReadableProperties(cls)
+            val structFields = dataType.dt.fields.map… //boring
+            val fields = structFields.map { structField =>
+            // recursive here …
+        createSerializerForObject(inputObject, fields)
+    ```
+
+---
+# <!-- fit --> Dark side of Scala :ghost:
+
+- LOTS of debug here
+- Scala is very type safe. Bit codegen is not!
+- So use 
+    - `LogLevel.DEBUG` 
+    - `"spark.sql.codegen.comments" true` to view data flow
+
+---
+<!-- _class: lead -->
+# <!-- fit --> And it's alive!
+
+![bg right ](https://media.giphy.com/media/tze1mGedykiuk/source.gif)
+
+---
+
+# Future plans
+
+Support for:
+- Scala
+    - 2.11
+    - 2.13
+    - 3 (?)
+- Spark
+    - 2.3.3
+    - 2.4.0+
+
+---
+<!-- _class: lead -->
+# <!-- fit --> Give it a try!
+
+## [JetBrains/kotlin-spark-api](https://github.com/JetBrains/kotlin-spark-api)
+
+---
+
+<!-- _class: lead -->
+# Thanks!
+## Questions?
+### if(:bird:) @asm0di0 else @asm0dey
